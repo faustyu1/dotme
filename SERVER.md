@@ -37,7 +37,7 @@ Small Express server that calls the official Spotify Web API so your credentials
 - Vite proxy forwards it to `http://localhost:4000/api/spotify`
 - `api/spotify.js` exchanges the refresh token for an access token and calls
   `/v1/me/player/currently-playing` and `/v1/me/player/recently-played`
-- Response is cached for 10 seconds
+- Response is cached in memory for 3 seconds (no CDN caching); the page polls every 5 seconds
 
 ## View counter
 

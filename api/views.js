@@ -20,13 +20,22 @@ async function getPool() {
     user: process.env.POSTGRES_USER,
     password: process.env.POSTGRES_PASSWORD,
     database: process.env.POSTGRES_DATABASE,
-    ssl: { rejectUnauthorized: false },
+    // The current server doesn't speak SSL; set POSTGRES_SSL=true for a host that does.
+    ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
     max: 1,
   });
   tableReady ??= pool.query(
     'CREATE TABLE IF NOT EXISTS page_views (key text PRIMARY KEY, count bigint NOT NULL DEFAULT 0)'
   );
-  await tableReady;
+  try {
+    await tableReady;
+  } catch (err) {
+    // Let the next request retry from scratch instead of reusing a failed setup.
+    tableReady = null;
+    pool.end().catch(() => {});
+    pool = null;
+    throw err;
+  }
   return pool;
 }
 

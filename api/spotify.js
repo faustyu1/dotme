@@ -4,7 +4,8 @@
 
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API = 'https://api.spotify.com/v1';
-const CACHE_MS = 10000;
+// Short cache: keeps Spotify calls bounded under load without making the widget lag.
+const CACHE_MS = 3000;
 
 let accessToken = null;
 let accessTokenExp = 0;
@@ -94,7 +95,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Spotify credentials not configured' });
   }
 
-  res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=30');
+  // No CDN caching: a stale edge copy is what made track changes show up late.
+  res.setHeader('Cache-Control', 'no-store');
 
   if (cache && Date.now() - cache.ts < CACHE_MS) return res.status(200).json(cache.data);
 

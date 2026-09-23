@@ -391,8 +391,16 @@ export default function App() {
     }
 
     load(0, true)
-    const iv = setInterval(load, 15000)
-    return () => { cancelled = true; clearInterval(iv); clearTimeout(trackEnd.current) }
+    const iv = setInterval(() => { if (!document.hidden) load() }, 5000)
+    // Catch up immediately when the tab becomes visible again.
+    const onVisible = () => { if (!document.hidden) load() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      clearInterval(iv)
+      clearTimeout(trackEnd.current)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
 
