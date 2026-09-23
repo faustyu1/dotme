@@ -9,6 +9,27 @@ interface SpotifyTrack {
   isPlaying?: boolean
   progressMs?: number
   durationMs?: number
+  device?: { name: string; type: string }
+}
+
+const DEVICE_ICONS: Record<string, JSX.Element> = {
+  computer: <path d="M3 5h18v11H3zM8 20h8M12 16v4" />,
+  smartphone: <path d="M8 2h8a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />,
+  tablet: <path d="M6 2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />,
+  speaker: <path d="M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM12 7h.01M12 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
+  tv: <path d="M3 6h18v11H3zM8 21h8M9 2l3 4 3-4" />,
+}
+
+function DeviceTag({ device }: { device: { name: string; type: string } }) {
+  const icon = DEVICE_ICONS[device.type.toLowerCase()] || DEVICE_ICONS.speaker
+  return (
+    <span className="np-device" title={device.type}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {icon}
+      </svg>
+      {device.name}
+    </span>
+  )
 }
 
 interface SpotifyData {
@@ -127,19 +148,62 @@ function confetti(x: number, y: number) {
   }
 }
 
+function hasZeroBits(buf: ArrayBuffer, bits: number) {
+  const bytes = new Uint8Array(buf)
+  let i = 0
+  for (; bits >= 8; bits -= 8) if (bytes[i++] !== 0) return false
+  return bits === 0 || bytes[i] >> (8 - bits) === 0
+}
+
+// Proof of work the views API asks for: sha256(`${challenge}:${solution}`) with `bits` leading zero bits.
+async function solvePow(challenge: string, bits: number) {
+  const enc = new TextEncoder()
+  for (let n = 0; ; n++) {
+    const solution = n.toString(36)
+    const digest = await crypto.subtle.digest('SHA-256', enc.encode(`${challenge}:${solution}`))
+    if (hasZeroBits(digest, bits)) return solution
+  }
+}
+
+const MIN_DWELL_MS = 3200
+
 function useViews() {
   const [views, setViews] = useState<number | null>(null)
   useEffect(() => {
-    // Count one view per browser session.
+    let cancelled = false
     let counted = false
     try { counted = sessionStorage.getItem('viewed') === '1' } catch {}
-    fetch('/api/views', { method: counted ? 'GET' : 'POST' })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => {
-        setViews(d.count)
-        try { sessionStorage.setItem('viewed', '1') } catch {}
+
+    async function run() {
+      const res = await fetch('/api/views', { cache: 'no-store' })
+      if (!res.ok) return
+      const { count, challenge, bits } = await res.json()
+      if (cancelled) return
+      setViews(count)
+      if (counted || !challenge || !crypto?.subtle) return
+
+      // The server only accepts a view after the page has been open for a few seconds.
+      const started = Date.now()
+      const solution = await solvePow(challenge, bits)
+      const wait = MIN_DWELL_MS - (Date.now() - started)
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+      while (document.hidden && !cancelled) await new Promise((r) => setTimeout(r, 1000))
+      if (cancelled) return
+
+      const post = await fetch('/api/views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challenge, solution }),
       })
-      .catch(() => {})
+      if (!post.ok) return
+      const data = await post.json()
+      if (cancelled) return
+      setViews(data.count)
+      try { sessionStorage.setItem('viewed', '1') } catch {}
+    }
+
+    run().catch(() => {})
+    return () => { cancelled = true }
   }, [])
   return views
 }
@@ -476,7 +540,10 @@ export default function App() {
                   aria-hidden="true"
                 />
                 <span className="np-body">
-                  <span className="np-label">{spotify.np?.isPlaying ? 'now playing' : 'last played'}</span>
+                  <span className="np-label">
+                    {spotify.np?.isPlaying ? 'now playing' : 'last played'}
+                    {spotify.np.isPlaying && spotify.np.device && <DeviceTag device={spotify.np.device} />}
+                  </span>
                   <span className="np-title">{spotify.np.title}</span>
                   <span className="np-artist">{spotify.np.artist}</span>
                   <NpProgress np={spotify.np} syncedAt={spotify.syncedAt} />

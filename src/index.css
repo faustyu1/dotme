@@ -607,3 +607,29 @@ a, .social {
 .views {
   letter-spacing: 0.04em;
 }
+
+.np-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.np-device {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.np-device svg {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+}

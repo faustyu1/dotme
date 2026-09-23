@@ -18,7 +18,7 @@ for (const key of ['SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET', 'SPOTIFY_REFRES
 const app = express();
 
 app.get('/api/spotify', spotifyHandler);
-app.all('/api/views', viewsHandler);
+app.all('/api/views', express.json(), viewsHandler);
 
 app.listen(PORT, () => {
   console.log(`API on http://localhost:${PORT}`);

@@ -1,6 +1,6 @@
 // Spotify now-playing via the official Spotify Web API.
 // Env: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REFRESH_TOKEN
-// (refresh token needs scopes: user-read-currently-playing user-read-recently-played)
+// (refresh token needs scopes: user-read-currently-playing user-read-recently-played user-read-playback-state)
 
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API = 'https://api.spotify.com/v1';
@@ -64,15 +64,36 @@ function observe(np) {
   if (np) lastNp = np;
 }
 
+// Spotify names devices like "MacBook Pro — Daniil"; keep the model, drop the owner's name.
+function deviceName(name = '') {
+  return name.split(/\s+[—–-]\s+/)[0].trim() || name;
+}
+
+// /me/player also tells which device is playing, but needs user-read-playback-state.
+// Fall back to currently-playing for tokens issued without that scope.
+async function currentPlayback() {
+  try {
+    return await spotify('/me/player?additional_types=track,episode');
+  } catch (err) {
+    if (!/: 40[13] /.test(err.message)) throw err;
+    return spotify('/me/player/currently-playing?additional_types=track,episode');
+  }
+}
+
 async function load() {
   const [current, recent] = await Promise.all([
-    spotify('/me/player/currently-playing?additional_types=track,episode'),
+    currentPlayback(),
     spotify('/me/player/recently-played?limit=20'),
   ]);
 
   const played = (recent?.items || []).map((i) => ({ track: toTrack(i.track), playedAt: Date.parse(i.played_at) }));
   let nowPlaying = current?.item
-    ? { ...toTrack(current.item, Boolean(current.is_playing)), progressMs: current.progress_ms, durationMs: current.item.duration_ms }
+    ? {
+        ...toTrack(current.item, Boolean(current.is_playing)),
+        progressMs: current.progress_ms,
+        durationMs: current.item.duration_ms,
+        device: current.device ? { name: deviceName(current.device.name), type: current.device.type } : undefined,
+      }
     : null;
   if (!nowPlaying && played.length) nowPlaying = played[0].track;
 
