@@ -1,6 +1,6 @@
-# Local Yandex Music Proxy (Node.js)
+# Local Spotify Proxy (Node.js)
 
-This runs a lightweight Node.js proxy server (using `@dvxch/yandex-music` library) so your Yandex Music token stays secure.
+Small Express server that calls the official Spotify Web API so your credentials stay server-side.
 
 ## Setup
 
@@ -9,53 +9,45 @@ This runs a lightweight Node.js proxy server (using `@dvxch/yandex-music` librar
    npm install
    ```
 
-2. Create your token file:
-   - Copy `.env.server` and fill in your real token:
-     ```bash
-     YANDEX_MUSIC_TOKEN=your_actual_token
-     ```
+2. Create a Spotify app at https://developer.spotify.com/dashboard
+   - Redirect URI: `http://127.0.0.1:8888/callback`
+   - API: Web API
 
-3. How to get Yandex Music token:
-   - Go to https://music.yandex.ru (logged in)
-   - Play any track
-   - Open DevTools (F12) → Network tab
-   - Find a request to `api.music.yandex.net`
-   - Copy the value after `Authorization: OAuth `
-
-4. **Run separately** (strongly recommended right now because of network/install issues):
-
-   Terminal 1:
+3. Create `.env.server`:
    ```bash
-   npm run server
-   ```
-   Wait for the "Yandex Music proxy on http://localhost:4000" message.
-
-   Terminal 2:
-   ```bash
-   npm run dev
+   SPOTIFY_CLIENT_ID=your_client_id
+   SPOTIFY_CLIENT_SECRET=your_client_secret
    ```
 
-   Then open http://localhost:3000
+4. Get a refresh token:
+   ```bash
+   npm run spotify:auth
+   ```
+   Open the printed URL, log in, then add the printed `SPOTIFY_REFRESH_TOKEN=...` line to `.env.server`.
 
-   (The `npm run dev:full` can have race conditions on startup.)
+5. Run:
+   ```bash
+   npm run dev:full
+   ```
+   Open http://localhost:3000
 
 ## How it works
 
-- Frontend calls `/api/yandex`
-- Vite proxy forwards it to `http://localhost:4000/api/yandex`
-- Server fetches data from Yandex using your token (never sent to browser)
-- Response is cached for 45 seconds
+- Frontend calls `/api/spotify`
+- Vite proxy forwards it to `http://localhost:4000/api/spotify`
+- `api/spotify.js` exchanges the refresh token for an access token and calls
+  `/v1/me/player/currently-playing` and `/v1/me/player/recently-played`
+- Response is cached for 10 seconds
 
-## Security notes
+## View counter
 
-- Token lives only in `.env.server` (never committed)
-- All Yandex calls happen server-side
-- Only public track info (title, artist, cover, link) is returned
+`api/views.js` counts one view per browser session (`POST /api/views`, `GET` just reads).
 
-## Production
+- Production: Postgres from the `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`,
+  `POSTGRES_PASSWORD`, `POSTGRES_DATABASE` variables. The `page_views` table is created on first request.
+- Local dev (no `POSTGRES_HOST`): stored in `.data/views.json`.
 
-For production you can:
-- Deploy the same `server.js` logic as a serverless function (Vercel, etc.)
-- Or keep using a small Node service
+## Production (Vercel)
 
-The token must **never** be exposed in the browser.
+`api/spotify.js` and `api/views.js` are deployed as serverless functions. Set the same three
+`SPOTIFY_*` variables in the Vercel project environment.

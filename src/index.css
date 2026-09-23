@@ -28,7 +28,7 @@ body {
   display: grid;
   place-items: center;
   padding: 24px;
-  overflow: hidden;
+  overflow-x: hidden;
   position: relative;
   cursor: url("/cursor.png") 2 2, auto;
 }
@@ -426,3 +426,184 @@ a, .social {
 }
 
 
+
+.portrait-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 72px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.np.is-loading:hover {
+  border-color: var(--line);
+  transform: none;
+  box-shadow: none;
+}
+
+.sk {
+  display: block;
+  height: 0.7rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #16161a 0%, #222228 50%, #16161a 100%);
+  background-size: 200% 100%;
+  animation: sk 1.2s ease-in-out infinite;
+}
+
+.sk-title { width: 60%; margin: 3px 0; }
+.sk-artist { width: 40%; height: 0.6rem; }
+.sk-line { width: 70%; height: 0.6rem; margin: 3px 0; }
+.recent li:nth-child(2) .sk-line { width: 55%; }
+.recent li:nth-child(3) .sk-line { width: 62%; }
+
+@keyframes sk {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; }
+}
+
+.np-enter {
+  animation: np-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.np.np-enter .np-art {
+  animation: np-art-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.np.np-enter .np-body > * {
+  animation: np-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.np.np-enter .np-title  { animation-delay: 60ms; }
+.np.np-enter .np-artist { animation-delay: 120ms; }
+
+@keyframes np-in {
+  from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes np-art-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-enter, .np.np-enter .np-art, .np.np-enter .np-body > * { animation: none; }
+}
+
+/* Clown: click to honk */
+.portrait-btn {
+  display: block;
+  margin: 0 auto 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: inherit;
+  border-radius: 20px;
+}
+
+.portrait-btn .portrait {
+  margin: 0;
+}
+
+.portrait-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.portrait-btn.is-shaking {
+  animation: honk 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes honk {
+  0%   { transform: scale(1) rotate(0); }
+  15%  { transform: scale(0.88) rotate(-8deg); }
+  30%  { transform: scale(1.12) rotate(7deg); }
+  45%  { transform: scale(1.04) rotate(-6deg); }
+  60%  { transform: scale(1.06) rotate(4deg); }
+  75%  { transform: scale(1) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.confetti {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  font-size: 20px;
+  line-height: 1;
+  will-change: transform, opacity;
+}
+
+.confetti-bit {
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Colour taken from the current cover */
+.card {
+  transition: box-shadow 0.8s ease, border-color 0.8s ease;
+}
+
+.card.has-color {
+  border-color: rgba(var(--np-rgb), 0.22);
+  box-shadow:
+    0 40px 100px -30px rgba(0, 0, 0, 0.95),
+    0 0 90px -30px rgba(var(--np-rgb), 0.45);
+}
+
+.card.has-color .np {
+  background: linear-gradient(120deg, rgba(var(--np-rgb), 0.14), #0c0c0e 70%);
+  border-color: rgba(var(--np-rgb), 0.3);
+}
+
+.card.has-color .np:hover {
+  border-color: rgba(var(--np-rgb), 0.8);
+  box-shadow: 0 12px 26px -14px rgba(var(--np-rgb), 0.8);
+}
+
+.card.has-color .np-label,
+.card.has-color .r-dot {
+  color: rgb(var(--np-rgb));
+}
+
+.card.has-color .np-eq i,
+.card.has-color .np-bar > span {
+  background: rgb(var(--np-rgb));
+}
+
+/* Track progress */
+.np-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.62rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.np-bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.np-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.25s linear, background 0.8s ease;
+}
+
+.views {
+  letter-spacing: 0.04em;
+}

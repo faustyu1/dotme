@@ -11,7 +11,7 @@
 - Легко редактировать контакты в `src/App.tsx`
 - Одинокий котик (Oneko) следует за курсором
 - Звёздное небо, искры, typewriter, glitch, Konami и т.д.
-- Yandex Music статус — опционально (graceful fallback)
+- Spotify статус — опционально (graceful fallback)
 
 ## Запуск (локально с Яндекс Музыкой)
 
