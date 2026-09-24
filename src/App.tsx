@@ -10,6 +10,7 @@ interface SpotifyTrack {
   progressMs?: number
   durationMs?: number
   device?: { name: string; type: string }
+  uri?: string
 }
 
 const DEVICE_ICONS: Record<string, JSX.Element> = {
@@ -36,7 +37,100 @@ interface SpotifyData {
   nowPlaying?: SpotifyTrack | null
   recent?: SpotifyTrack[]
   ts?: number
+  lastActiveAt?: number | null
   color?: string | null
+}
+
+const PAUSED_FOR_MS = 10 * 60 * 1000
+
+function ago(ms: number) {
+  const m = Math.floor(ms / 60000)
+  if (m < 60) return `${Math.max(m, 1)}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+// "now playing" / "paused" (stopped a moment ago) / "offline · 3h ago"
+function playState(np: SpotifyTrack, lastActiveAt: number | null, now: number) {
+  if (np.isPlaying) return { label: 'now playing', offline: false }
+  if (!lastActiveAt) return { label: 'last played', offline: false }
+  const idle = now - lastActiveAt
+  if (idle < PAUSED_FOR_MS) return { label: 'paused', offline: false }
+  return { label: `offline · ${ago(idle)}`, offline: true }
+}
+
+// Spotify iFrame API: plays the same track as "now playing" in a compact embed.
+// Logged-in Spotify users hear the full track, everyone else a 30s preview.
+interface EmbedController {
+  loadUri(uri: string): void
+  play(): void
+  pause(): void
+  destroy(): void
+  addListener(event: string, cb: (e: { data: { isPaused?: boolean } }) => void): void
+}
+type IFrameAPI = {
+  createController(el: HTMLElement, opts: { uri: string; width: string; height: number }, cb: (c: EmbedController) => void): void
+}
+
+let iframeApi: Promise<IFrameAPI> | null = null
+
+function loadIframeApi() {
+  iframeApi ??= new Promise((resolve, reject) => {
+    ;(window as unknown as { onSpotifyIframeApiReady: (api: IFrameAPI) => void }).onSpotifyIframeApiReady = resolve
+    const script = document.createElement('script')
+    script.src = 'https://open.spotify.com/embed/iframe-api/v1'
+    script.async = true
+    script.onerror = () => { iframeApi = null; reject(new Error('spotify embed failed')) }
+    document.body.appendChild(script)
+  })
+  return iframeApi
+}
+
+function ListenAlong({ uri, on }: { uri?: string; on: boolean }) {
+  const host = useRef<HTMLDivElement>(null)
+  const controller = useRef<EmbedController | null>(null)
+  const loaded = useRef<string | undefined>()
+
+  useEffect(() => {
+    if (!on || !uri || !host.current) return
+    if (controller.current) {
+      // Follow track changes.
+      if (loaded.current !== uri) {
+        loaded.current = uri
+        controller.current.loadUri(uri)
+      }
+      return
+    }
+    let cancelled = false
+    const el = document.createElement('div')
+    host.current.appendChild(el)
+    loadIframeApi()
+      .then((api) => {
+        if (cancelled) return
+        api.createController(el, { uri, width: '100%', height: 80 }, (c) => {
+          controller.current = c
+          loaded.current = uri
+          c.addListener('ready', () => c.play())
+        })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [on, uri])
+
+  useEffect(() => {
+    if (on) return
+    controller.current?.destroy()
+    controller.current = null
+    loaded.current = undefined
+    if (host.current) host.current.innerHTML = ''
+  }, [on])
+
+  return <div ref={host} className={`listen-along ${on ? 'on' : ''}`} />
+}
+
+function samaraTime() {
+  return new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Samara' })
 }
 
 // Average colour of the cover, pushed towards a readable, saturated tone.
@@ -260,6 +354,8 @@ const SOCIALS: Social[] = [
 export default function App() {
   const [toastMessage, setToastMessage] = useState('')
   const [clock, setClock] = useState('--:--:--')
+  const [now, setNow] = useState(Date.now())
+  const [listening, setListening] = useState(false)
   const [avatarOk, setAvatarOk] = useState(true)
   const views = useViews()
 
@@ -267,9 +363,10 @@ export default function App() {
     np: SpotifyTrack | null
     recent: SpotifyTrack[]
     color: string | null
+    lastActiveAt: number | null
     syncedAt: number
     loaded: boolean
-  }>({ np: null, recent: [], color: null, syncedAt: 0, loaded: false })
+  }>({ np: null, recent: [], color: null, lastActiveAt: null, syncedAt: 0, loaded: false })
   const trackEnd = useRef<ReturnType<typeof setTimeout>>()
 
   const showToast = useCallback((msg: string) => {
@@ -279,7 +376,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const tick = () => setClock(new Date().toLocaleTimeString())
+    const tick = () => { setClock(samaraTime()); setNow(Date.now()) }
     tick()
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
@@ -430,6 +527,7 @@ export default function App() {
             np,
             recent,
             color: data.color || (np?.id === prev.np?.id ? prev.color : null),
+            lastActiveAt: data.lastActiveAt ?? prev.lastActiveAt,
             syncedAt: data.ts || Date.now(),
             loaded: true,
           }
@@ -465,6 +563,8 @@ export default function App() {
 
 
 
+  const state = spotify.np ? playState(spotify.np, spotify.lastActiveAt, now) : null
+
   return (
     <div>
       <canvas id="stars" aria-hidden="true" />
@@ -477,7 +577,7 @@ export default function App() {
         <button
           type="button"
           className="portrait-btn"
-          aria-label="хонк"
+          aria-label="клоун"
           onClick={(e) => {
             const el = e.currentTarget
             // Restart the shake animation on every click.
@@ -526,7 +626,10 @@ export default function App() {
           ))}
         </nav>
 
-        <section className={`spotify ${spotify.np?.isPlaying ? 'is-playing' : ''}`} aria-label="Spotify">
+        <section
+          className={`spotify ${spotify.np?.isPlaying ? 'is-playing' : ''} ${state?.offline ? 'is-offline' : ''}`}
+          aria-label="Spotify"
+        >
             <hr className="rule" />
             {spotify.np ? (
               <a key={spotify.np.id || spotify.np.title} className="np np-enter" href={spotify.np.url || '#'} target="_blank" rel="noopener noreferrer">
@@ -537,12 +640,12 @@ export default function App() {
                 />
                 <span className="np-body">
                   <span className="np-label">
-                    <span className="np-state">{spotify.np?.isPlaying ? 'now playing' : 'last played'}</span>
+                    <span className="np-state">{state?.label}</span>
                     {spotify.np.isPlaying && spotify.np.device && <DeviceTag device={spotify.np.device} />}
                   </span>
                   <span className="np-title">{spotify.np.title}</span>
                   <span className="np-artist">{spotify.np.artist}</span>
-                  <NpProgress np={spotify.np} syncedAt={spotify.syncedAt} />
+                  {!state?.offline && <NpProgress np={spotify.np} syncedAt={spotify.syncedAt} />}
                 </span>
                 <span className="np-eq" aria-hidden="true"><i /><i /><i /><i /></span>
               </a>
@@ -556,6 +659,7 @@ export default function App() {
                 </span>
               </div>
             ) : null}
+            <ListenAlong uri={spotify.np?.uri} on={listening} />
             {!spotify.loaded && (
               <ul className="recent" aria-hidden="true">
                 {[0, 1, 2].map((i) => <li key={i}><span className="sk sk-line" /></li>)}
@@ -583,8 +687,26 @@ export default function App() {
           </section>
 
         <footer className="foot">
-          <span className="clock">{clock}</span>
-          {views != null && <span className="views" title="просмотры">👁 {views.toLocaleString('ru-RU')}</span>}
+          <span className="clock" title="моё время (Самара, UTC+4)">
+            {clock} <span className="clock-tz">Samara</span>
+          </span>
+          <span className="foot-right">
+            {views != null && <span className="views" title="просмотры">👁 {views.toLocaleString('ru-RU')}</span>}
+            <button
+              type="button"
+              className={`sound-toggle ${listening ? 'on' : ''}`}
+              onClick={() => setListening((v) => !v)}
+              disabled={!spotify.np?.uri}
+              aria-pressed={listening}
+              aria-label={listening ? 'выключить музыку' : 'слушать вместе'}
+              title={listening ? 'выключить музыку' : 'слушать вместе'}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M11 5 6 9H2v6h4l5 4V5z" />
+                {listening ? <path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /> : <path d="m22 9-6 6M16 9l6 6" />}
+              </svg>
+            </button>
+          </span>
         </footer>
       </main>
 

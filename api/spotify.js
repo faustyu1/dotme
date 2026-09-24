@@ -46,6 +46,7 @@ function toTrack(item, isPlaying = false) {
     title: item.name,
     artist: item.artists ? item.artists.map((a) => a.name).join(', ') : item.show?.name || '',
     url: item.external_urls?.spotify,
+    uri: item.uri,
     art: (item.album?.images || item.images || [])[0]?.url,
     isPlaying,
   };
@@ -56,6 +57,7 @@ function toTrack(item, isPlaying = false) {
 const HISTORY_SIZE = 3;
 let observed = [];
 let lastNp = null;
+let lastPlayingAt = 0;
 
 function observe(np) {
   if (lastNp && lastNp.id !== np?.id) {
@@ -106,8 +108,20 @@ async function load() {
     .filter((t) => t?.id && !seen.has(t.id) && seen.add(t.id))
     .slice(0, HISTORY_SIZE);
 
+  // When the music stopped: now if playing, otherwise the latest of the pause/skip time,
+  // the last finished track and the last time this instance saw something playing.
+  if (nowPlaying?.isPlaying) lastPlayingAt = Date.now();
+  const lastActiveAt = nowPlaying?.isPlaying
+    ? Date.now()
+    : Math.max(
+        (current?.item && !current.is_playing && current.timestamp) || 0,
+        played[0]?.playedAt || 0,
+        observed[0]?.playedAt || 0,
+        lastPlayingAt,
+      ) || null;
+
   // ts lets the client extrapolate progress through our cache and the CDN cache.
-  return { nowPlaying, recent: history, ts: Date.now() };
+  return { nowPlaying, recent: history, lastActiveAt, ts: Date.now() };
 }
 
 export default async function handler(req, res) {
