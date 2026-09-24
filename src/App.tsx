@@ -22,7 +22,13 @@ const DEVICE_ICONS: Record<string, JSX.Element> = {
       <path d="M20.054 15.987H3.946" />
     </>
   ),
-  smartphone: <path d="M8 2h8a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />,
+  // Modern phone front (Pixel-style): tall rounded body, punch-hole camera, no home button.
+  smartphone: (
+    <>
+      <rect x="6" y="2" width="12" height="20" rx="3" />
+      <circle cx="12" cy="5.5" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
   tablet: <path d="M6 2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />,
   speaker: <path d="M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM12 7h.01M12 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
   tv: <path d="M3 6h18v11H3zM8 21h8M9 2l3 4 3-4" />,
