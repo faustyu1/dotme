@@ -541,7 +541,7 @@ export default function App() {
                 />
                 <span className="np-body">
                   <span className="np-label">
-                    {spotify.np?.isPlaying ? 'now playing' : 'last played'}
+                    <span className="np-state">{spotify.np?.isPlaying ? 'now playing' : 'last played'}</span>
                     {spotify.np.isPlaying && spotify.np.device && <DeviceTag device={spotify.np.device} />}
                   </span>
                   <span className="np-title">{spotify.np.title}</span>
