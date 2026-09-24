@@ -15,6 +15,13 @@ interface SpotifyTrack {
 
 const DEVICE_ICONS: Record<string, JSX.Element> = {
   computer: <path d="M3 5h18v11H3zM8 20h8M12 16v4" />,
+  // Laptop icon from Lucide (ISC license): screen plus a flared base, MacBook-like.
+  laptop: (
+    <>
+      <path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z" />
+      <path d="M20.054 15.987H3.946" />
+    </>
+  ),
   smartphone: <path d="M8 2h8a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />,
   tablet: <path d="M6 2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />,
   speaker: <path d="M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM12 7h.01M12 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
@@ -22,7 +29,8 @@ const DEVICE_ICONS: Record<string, JSX.Element> = {
 }
 
 function DeviceTag({ device }: { device: { name: string; type: string } }) {
-  const icon = DEVICE_ICONS[device.type.toLowerCase()] || DEVICE_ICONS.speaker
+  const kind = /macbook|laptop|notebook/i.test(device.name) ? 'laptop' : device.type.toLowerCase()
+  const icon = DEVICE_ICONS[kind] || DEVICE_ICONS.speaker
   return (
     <span className="np-device" title={device.type}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
